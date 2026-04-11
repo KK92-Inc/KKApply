@@ -1,0 +1,44 @@
+// ============================================================================
+// W2Inc, 2025, All Rights Reserved.
+// See README in the root project for more information.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  // Note: If you ever move to PostgreSQL/MySQL, you'll change this here.
+}
+
+// ============================================================================
+
+model User {
+  id         String  @id
+  email      String  @unique
+  verified   Boolean @default(false)
+  banned     Boolean @default(false)
+  emailToken String  @unique
+  subscribed Boolean @default(true)
+
+  createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+  updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+
+  // Login token for email verification.
+  verifier VerificationToken?
+
+  @@map("user")
+}
+
+model VerificationToken {
+  // Assuming you generate a 6-digit code in your app logic, a String ID is perfect here.
+  id        String   @id
+  userId    String   @unique
+  expiresAt String   @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+15 minutes'))"))
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("verification_token")
+}
