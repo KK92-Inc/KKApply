@@ -111,15 +111,8 @@ export const events = query(v.pipe(v.string(), v.nonEmpty()), async (id) => {
 				OR e.eventTypeId NOT IN (SELECT eventTypeId FROM user_registered_event_types)
 			)
 		ORDER BY
-			CASE et.name
-				WHEN 'Open Day' THEN 1
-				WHEN 'Coding Challenge' THEN 2
-				WHEN 'Piscine' THEN 3
-				WHEN 'Kickoff' THEN 4
-				ELSE 5
-			END ASC,
-			-- NULL startsAt (timeless) floats to the top of its position naturally;
-			-- sort them after dated events of the same type by putting NULL last
+			-- We order by the type and secondarily by the event start time
+			et."order" ASC,
 			CASE WHEN e.startsAt IS NULL THEN 1 ELSE 0 END,
 			e.startsAt ASC
 	`;
