@@ -1,1 +1,18 @@
-// place files you want to import through the `$lib` alias in this folder.
+// ============================================================================
+// W2Inc, 2025, All Rights Reserved.
+// See README in the root project for more information.
+// ============================================================================
+
+export const UserFlag = {
+	IsAdmin: 1 << 2,
+} as const;
+
+export const ApplicationStepType = {
+	Boarding: 0,
+	Intermission: 1,
+	Challenge: 2,
+	Waiting: 3,
+	Result: 4
+} as const
+
+// ============================================================================

@@ -20,6 +20,7 @@ model User {
   email      String  @unique
   verified   Boolean @default(false)
   banned     Boolean @default(false)
+  flags      Int     @default(0)
   emailToken String  @unique
   subscribed Boolean @default(true)
 

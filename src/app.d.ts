@@ -8,9 +8,10 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			session: Session;
-			user: User;
 		}
-		// interface PageData {}
+		interface PageData {
+			session: Session;
+		}
 		// interface PageState {}
 		// interface Platform {}
 	}
