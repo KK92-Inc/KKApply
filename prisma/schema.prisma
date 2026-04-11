@@ -27,6 +27,7 @@ model User {
   updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
 
   // Login token for email verification.
+  sessions Session[]
   verifier VerificationToken?
 
   @@map("user")
@@ -34,11 +35,23 @@ model User {
 
 model VerificationToken {
   // Assuming you generate a 6-digit code in your app logic, a String ID is perfect here.
-  id        String   @id
-  userId    String   @unique
-  expiresAt String   @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+15 minutes'))"))
+  id        String @id
+  userId    String @unique
+  expiresAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+15 minutes'))"))
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("verification_token")
+}
+
+model Session {
+  id        String @id
+  userId    String
+  ip        String
+  expiresAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+7 days'))"))
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ip])
+  @@map("session")
 }

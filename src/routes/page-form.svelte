@@ -2,38 +2,37 @@
 	import * as Field from "$lib/components/field";
 	import * as InputGroup from "$lib/components/input-group";
 	import * as Auth from "$lib/remotes/auth.remote";
-	import { AlertTriangle, Mail, Rocket, TriangleAlert } from "@lucide/svelte";
+	import { Mail, Rocket, TriangleAlert } from "@lucide/svelte";
 	import type { Attachment } from "svelte/attachments";
 	import { Button } from "$lib/components/button";
 	import { PUBLIC_CAPTCHA_SITE_KEY } from "$env/static/public";
-	import { Schemas } from "$lib/remotes/schemas";
 	import { isHttpError } from "@sveltejs/kit";
 	import { toast } from "svelte-sonner";
+	import { captcha } from "$lib/remotes/schemas";
+	import { ensure } from "$lib/utils";
 
-	const preflight = Auth.login.preflight(Schemas.captcha);
+	const preflight = Auth.login.preflight(captcha);
 	const form = preflight.enhance(async (data) => {
-		try {
-			await data.submit();
-		} catch (err) {
-			if (isHttpError(err)) {
-				return toast.error(err.body.message, {
-					position: "bottom-left",
-				});
-			}
-
-			return toast.error("An unexpected error occurred. Please try again.", {
+		const [success, error] = await ensure(data.submit());
+		if (success) {
+			return toast.success("Magic link sent. Please check your inbox.", {
+				closeButton: false,
 				position: "bottom-left",
 			});
 		}
 
-		toast.success("Magic link sent. Please check your inbox.", {
-			closeButton: false,
+		if (isHttpError(error)) {
+			return toast.error(error.body.message, {
+				position: "bottom-left",
+			});
+		}
+
+		return toast.error("An unexpected error occurred.", {
 			position: "bottom-left",
 		});
 	});
 
-	const issues = $derived(preflight.fields.email.issues())
-
+	const issues = $derived(preflight.fields.email.issues());
 	const links = [
 		{ href: "/privacy", label: "Privacy Policy" },
 		{ href: "/terms", label: "Terms of Service" },
@@ -41,7 +40,7 @@
 		{ href: "/contact", label: "Contact" },
 	];
 
-	function captcha(): Attachment {
+	function turnstile(): Attachment {
 		return (element) => {
 			console.log("Rendering captcha...");
 			// @ts-expect-error - Imported via script tag
@@ -96,12 +95,14 @@
 					</InputGroup.Addon>
 				</InputGroup.Root>
 				{#if issues && issues.length > 0}
-					<Field.Error class="-mt-1 animate-pulse flex items-center gap-1 text-destructive">
+					<Field.Error
+						class="-mt-1 animate-pulse flex items-center gap-1 text-destructive"
+					>
 						<TriangleAlert class="size-4" />
 						{issues.map((issue) => issue.message).join(", ")}
 					</Field.Error>
 				{/if}
-				<div {@attach captcha()}></div>
+				<div {@attach turnstile()}></div>
 			</Field.Field>
 		</Field.Group>
 	</Field.Set>

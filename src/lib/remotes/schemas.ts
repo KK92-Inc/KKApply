@@ -6,7 +6,6 @@
 import * as v from "valibot";
 
 // ============================================================================
-
 export const email = v.pipe(
 	v.string(),
 	v.nonEmpty('Please enter your email.'),
@@ -14,9 +13,10 @@ export const email = v.pipe(
 	v.maxLength(128, 'Your email is too long.')
 );
 
-// ============================================================================
-
-export const Schemas = {
+export const captcha = v.object({
 	email,
-	captcha: v.object({ email, token: v.pipe(v.string(), v.nonEmpty('Captcha token is required.')) }),
-};
+	token: v.pipe(
+		v.string(),
+		v.nonEmpty('Captcha token is required.')
+	)
+});

@@ -36,20 +36,6 @@
 		},
 	];
 
-	let email = $state("");
-	// async function submit() {
-	// 	try {
-	// 		await Email.verify(email);
-	// 		toast.success("Verification email sent! Please check your inbox.", {
-	// 			position: "bottom-left",
-	// 		});
-	// 	} catch (error) {
-	// 		toast.error("Please make sure you've entered a valid email address.", {
-	// 			position: "bottom-left",
-	// 		});
-	// 	}
-	// }
-
 	let index = $state(0);
 	let qoute = $derived(quotes[index]!);
 	$effect(() => {
@@ -61,17 +47,7 @@
 			clearInterval(interval);
 		};
 	});
-
-
-
 </script>
-
-<svelte:head>
-	<script
-		src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-		defer
-	></script>
-</svelte:head>
 
 <div
 	class="grid min-h-dvh grid-cols-[var(--padding)_1px_1fr_1px_var(--padding)] grid-rows-[var(--padding)_1px_1fr_1px_var(--padding)] [--padding:--spacing(4)] sm:[--padding:--spacing(10)]"
@@ -134,6 +110,7 @@
 						<span class="sr-only">Toggle theme</span>
 					</Button>
 					<PageForm />
+				</div>
 			</div>
 		</main>
 	</div>
