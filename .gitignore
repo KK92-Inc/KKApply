@@ -26,3 +26,5 @@ prisma/generated
 demo
 *.zip
 *.db*
+
+!.env.sample
