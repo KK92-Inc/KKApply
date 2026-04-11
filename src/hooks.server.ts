@@ -22,6 +22,15 @@ export const init: ServerInit = async () => {
 	if (!dev) await sql`PRAGMA locking_mode = EXCLUSIVE;`;
 	await sql`PRAGMA temp_store = MEMORY;`;
 	await sql`PRAGMA mmap_size = 8589934592;`; // 8GB
+
+	// Every 15 minutes, delete expired sessions
+	Bun.cron("*/15 * * * *", async () => {
+		await sql`
+			DELETE FROM session
+			WHERE "expiresAt" <= (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+		`;
+		logger.info(`Session cleanup completed.`);
+	});
 }
 // ============================================================================
 

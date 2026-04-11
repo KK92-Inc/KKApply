@@ -29,7 +29,7 @@
 <div class="flex min-h-screen flex-col bg-background">
 	<header class="border-b bg-card shadow-sm">
 		<div class="container mx-auto flex h-16 items-center justify-between px-4">
-			<a class="flex items-center space-x-3" href="/">
+			<a class="flex items-center space-x-3" href="/home">
 				<img src="/favicon.svg" alt="Logo" class="h-8 w-8" />
 				<span class="text-lg font-semibold tracking-tight"
 					>{PUBLIC_APP_NAME}</span
@@ -37,17 +37,18 @@
 			</a>
 
 			<div class="flex items-center gap-1.5">
-				<Button
-					onclick={toggleMode}
-					variant="outline"
-					size="icon"
-				>
+				<Button onclick={toggleMode} variant="outline" size="icon">
 					<Sun class="dark:scale-0 dark:-rotate-90" />
 					<Moon class="absolute scale-0 dark:scale-100 dark:rotate-0" />
 					<span class="sr-only">Toggle theme</span>
 				</Button>
-				<!-- <Theme />
-				<Language /> -->
+				{#if admin}
+					<Button href="/admin" variant="outline">
+						<ShieldUser />
+						Admin
+					</Button>
+				{/if}
+					<Separator orientation="vertical" class="min-h-6" />
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger class={buttonVariants({ variant: "outline" })}>
 						<UserCircle />
@@ -89,13 +90,6 @@
 						</DropdownMenu.Group>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
-				{#if admin}
-					<Separator orientation="vertical" class="min-h-6" />
-					<Button href="/admin" variant="outline">
-						<ShieldUser />
-						Admin
-					</Button>
-				{/if}
 			</div>
 		</div>
 		<div id="subheader"></div>

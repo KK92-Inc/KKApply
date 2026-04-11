@@ -30,6 +30,7 @@ model User {
   // Login token for email verification.
   sessions Session[]
   verifier VerificationToken?
+  events UserEvent[]
 
   @@map("user")
 }
@@ -55,4 +56,71 @@ model Session {
 
   @@unique([userId, ip])
   @@map("session")
+}
+
+model ApplicationEvent {
+  id String @id
+
+  address      String?
+  maxUsers     Int?
+  autoComplete Boolean @default(false) // Once the startsAt is reached, it auto-completes it for all user_events
+
+  eventTypeId String
+  eventType   EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  // Event dependencies: This event requires completion of an event of a specific type before subscribing
+  requiredEventTypes EventTypeDependency[]
+
+  startsAt      String?
+  registerUntil String? // At what time should we not allow registrations anymore.
+  createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+  updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+
+  userEvents UserEvent[] @relation("EventToUserEvent") // Relation to UserEvent
+
+  @@map("event")
+}
+
+// Join table for event type dependencies (many-to-many)
+model EventTypeDependency {
+  eventId        String
+  requiredTypeId String
+
+  event        ApplicationEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requiredType EventType        @relation(fields: [requiredTypeId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, requiredTypeId])
+  @@map("event_type_dependency")
+}
+
+model EventType {
+  id          String  @id
+  name        String
+  description String?
+
+  events       ApplicationEvent[]
+  dependencies EventTypeDependency[]
+
+  createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+  updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+
+  @@map("event_type")
+}
+
+// Track which events a user is/was active on or attended
+model UserEvent {
+  id      String @id
+  userId  String
+  eventId String
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event ApplicationEvent @relation(name: "EventToUserEvent", fields: [eventId], references: [id], onDelete: Cascade)
+
+  completedAt String? // Nullable, set when user attended
+
+  createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+  updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+
+  @@unique([userId, eventId])
+  @@map("user_event")
 }
