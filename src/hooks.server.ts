@@ -9,6 +9,7 @@ import { sql } from "bun";
 import { sequence } from "@sveltejs/kit/hooks";
 import type { User, Session } from '$models';
 import { logger } from '$lib/logger';
+import { UserFlag } from '$lib';
 
 // ============================================================================
 
@@ -73,4 +74,17 @@ export const session: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(begin, session);
+export const authorized: Handle = async ({ event, resolve }) => {
+	if (!event.url.pathname.startsWith('/home/admin'))
+		return resolve(event);
+
+	const session = event.locals.session;
+	const [ user] = await sql<User[]>`
+		SELECT * FROM "user" WHERE id = ${session?.userId}
+		AND (flags & ${UserFlag.IsAdmin}) = ${UserFlag.IsAdmin}
+	`;
+
+	return user ? resolve(event) : new Response(null, { status: 404 });
+};
+
+export const handle = sequence(begin, session, authorized);

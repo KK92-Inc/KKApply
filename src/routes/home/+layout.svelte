@@ -19,11 +19,11 @@
 	import Separator from "$lib/components/separator/separator.svelte";
 	import * as Auth from "$lib/remotes/auth.remote";
 	import { page } from "$app/state";
-	import { isAdmin } from "$lib/remotes/user.remote";
+	import * as Admin from "$lib/remotes/admin.remote";
 	import { toggleMode } from "mode-watcher";
 
 	const { children }: LayoutProps = $props();
-	const admin = await isAdmin(page.data.session.userId);
+	const admin = await Admin.is(page.data.session.userId);
 </script>
 
 <div class="flex min-h-screen flex-col bg-background">
@@ -43,7 +43,7 @@
 					<span class="sr-only">Toggle theme</span>
 				</Button>
 				{#if admin}
-					<Button href="/admin" variant="outline">
+					<Button href="/home/admin" variant="outline">
 						<ShieldUser />
 						Admin
 					</Button>

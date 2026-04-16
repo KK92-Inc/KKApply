@@ -1,7 +1,7 @@
 import { query, command } from '$app/server';
 import { getRequestEvent } from '$app/server';
 import * as v from 'valibot';
-import type { User } from '$models';
+import type { User, UserEvent } from '$models';
 import { sql } from 'bun';
 import { error, invalid } from '@sveltejs/kit';
 import { UserFlag } from '$lib';
@@ -36,15 +36,9 @@ export interface MissedEvent {
 // ============================================================================
 
 /** Get user by ID */
-export const getUser = query(v.pipe(v.string(), v.nonEmpty()), async (id) => {
+export const get = query(v.pipe(v.string(), v.nonEmpty()), async (id) => {
 	const [user] = await sql<User[]>`SELECT * FROM "user" WHERE id = ${id}`;
 	return user ? user : error(404, 'User not found');
-});
-
-/** Checks if a user has admin privileges */
-export const isAdmin = query(v.pipe(v.string(), v.nonEmpty()), async (id) => {
-	const user = await getUser(id);
-	return (user.flags & UserFlag.IsAdmin) === UserFlag.IsAdmin;
 });
 
 export const events = query(v.pipe(v.string(), v.nonEmpty()), async (id) => {
@@ -250,4 +244,21 @@ export const unregister = command(v.pipe(v.string(), v.nonEmpty()), async (event
 
 	await sql`DELETE FROM user_event WHERE userId = ${userId} AND eventId = ${eventId}`;
 	events(userId).refresh();
+});
+
+export const registered = query(v.pipe(v.string(), v.nonEmpty()), async (name) => {
+	const { locals } = getRequestEvent();
+	const [event] = await sql<UserEvent[]>`
+		SELECT ue.*
+		FROM user_event ue
+		JOIN event e ON ue.eventId = e.id
+		JOIN event_type et ON e.eventTypeId = et.id
+		WHERE
+			ue.userId = ${locals.session.userId}
+			AND et.name = ${name}
+			AND (e.startsAt IS NULL OR e.startsAt < datetime('now'))
+		LIMIT 1
+	`;
+
+	return event;
 });
