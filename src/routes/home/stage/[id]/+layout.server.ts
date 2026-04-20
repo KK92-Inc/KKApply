@@ -4,17 +4,19 @@
 // ============================================================================
 
 import { error, redirect } from "@sveltejs/kit";
-import * as User from "$lib/remotes/user.remote";
+import * as Event from "$lib/remotes/event.remote";
 import type { LayoutServerLoad } from "./$types";
-import { sql } from "bun";
+import level from "$lib/assets/levels/20-stage-challenge.md?raw";
 
 // ============================================================================
 
-export const load: LayoutServerLoad = async ({ params }) => {
-	// Is the user registered for this stage, and is it not expired?
-	const userEvent = await User.registered(params.name);
-	console.log("User event for stage", params.name, ":", userEvent);
-	if (!userEvent || userEvent.completedAt)
-		redirect(302, "/home");
-	return { userEvent };
+export const load: LayoutServerLoad = async ({ params, locals }) => {
+
+
+
+
+
+
+
+	return {};
 };

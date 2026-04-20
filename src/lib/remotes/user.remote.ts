@@ -245,20 +245,3 @@ export const unregister = command(v.pipe(v.string(), v.nonEmpty()), async (event
 	await sql`DELETE FROM user_event WHERE userId = ${userId} AND eventId = ${eventId}`;
 	events(userId).refresh();
 });
-
-export const registered = query(v.pipe(v.string(), v.nonEmpty()), async (name) => {
-	const { locals } = getRequestEvent();
-	const [event] = await sql<UserEvent[]>`
-		SELECT ue.*
-		FROM user_event ue
-		JOIN event e ON ue.eventId = e.id
-		JOIN event_type et ON e.eventTypeId = et.id
-		WHERE
-			ue.userId = ${locals.session.userId}
-			AND et.name = ${name}
-			AND (e.startsAt IS NULL OR e.startsAt < datetime('now'))
-		LIMIT 1
-	`;
-
-	return event;
-});

@@ -117,11 +117,27 @@ model UserEvent {
   user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   event ApplicationEvent @relation(name: "EventToUserEvent", fields: [eventId], references: [id], onDelete: Cascade)
 
+  startedAt   String? // Nullable, set when user clicks start
   completedAt String? // Nullable, set when user attended
 
   createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
   updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
 
+  store UserEventStore?
+
   @@unique([userId, eventId])
   @@map("user_event")
+}
+
+model UserEventStore {
+  id          String @id
+  userEventId String @unique
+  payload     String // Storing JSON data as a string for polymorphism
+  
+  userEvent   UserEvent @relation(fields: [userEventId], references: [id], onDelete: Cascade)
+
+  createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+  updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
+
+  @@map("user_event_store")
 }
