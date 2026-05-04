@@ -3,20 +3,12 @@
 // See README in the root project for more information.
 // ============================================================================
 
-import { error, redirect } from "@sveltejs/kit";
-import * as Event from "$lib/remotes/event.remote";
-import type { LayoutServerLoad } from "./$types";
-import level from "$lib/assets/levels/20-stage-challenge.md?raw";
+import { createContext } from "svelte";
+import type { ApplicationEvent, UserEvent } from "$models";
 
 // ============================================================================
 
-export const load: LayoutServerLoad = async ({ params, locals }) => {
-
-
-
-
-
-
-
-	return {};
-};
+export const [get, set] = createContext<{
+	event: PromiseLike<ApplicationEvent>;
+	userEvent: PromiseLike<UserEvent>;
+}>();

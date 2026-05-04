@@ -6,6 +6,12 @@
 import * as v from "valibot";
 
 // ============================================================================
+
+export const id = v.pipe(
+	v.string(),
+	v.nonEmpty('ID is required.'),
+);
+
 export const email = v.pipe(
 	v.string(),
 	v.nonEmpty('Please enter your email.'),

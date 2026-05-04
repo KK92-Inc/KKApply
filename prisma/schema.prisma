@@ -73,6 +73,7 @@ model ApplicationEvent {
 
   startsAt      String?
   registerUntil String? // At what time should we not allow registrations anymore.
+  // completesAt String? // Nullable, set when user attended
   createdAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
   updatedAt String @default(dbgenerated("(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"))
 
