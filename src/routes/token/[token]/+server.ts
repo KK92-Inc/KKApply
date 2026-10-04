@@ -3,12 +3,12 @@
 // See README in the root project for more information.
 // ============================================================================
 
-import { sql } from "bun";
 import type { Session, VerificationToken } from "$models";
 import type { RequestHandler } from "@sveltejs/kit";
 import * as Date from "@internationalized/date";
 import { generateToken } from "$lib/utils";
 import { dev } from "$app/environment";
+import { sql } from "$lib";
 
 // ============================================================================
 

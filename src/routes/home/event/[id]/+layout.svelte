@@ -5,7 +5,7 @@
 	import type { LayoutProps } from "./$types";
 
 	const { children, params }: LayoutProps = $props();
-	const context = Page.set({
+	Page.set({
 		get event() {
 			return Event.get(params.id);
 		},
@@ -21,7 +21,7 @@
 <svelte:boundary>
 	{#snippet pending()}<p>Loading…</p>{/snippet}
 	{#snippet failed(e, reset)}
-	{JSON.stringify(e)}
+		Err: {JSON.stringify(e)}
 		<button onclick={reset}>Retry</button>
 	{/snippet}
 	{@render children?.()}

@@ -9,8 +9,8 @@ import * as v from "valibot";
 import { command, getRequestEvent, query } from "$app/server";
 import { Generator } from "$lib/games/rocket.svelte";
 import { id } from "$lib/remotes/schemas";
-import { sql } from "bun";
 import type { Level } from "$lib/games/rocket.svelte";
+import { sql } from "$lib";
 
 // ============================================================================
 

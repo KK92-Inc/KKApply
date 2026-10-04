@@ -15,19 +15,21 @@
 	const form = preflight.enhance(async (data) => {
 		const [success, error] = await ensure(data.submit());
 		if (success) {
-			return toast.success("Magic link sent. Please check your inbox.", {
+			toast.success("Magic link sent. Please check your inbox.", {
 				closeButton: false,
 				position: "bottom-left",
 			});
+			return;
 		}
 
 		if (isHttpError(error)) {
-			return toast.error(error.body.message, {
+			toast.error(error.body.message, {
 				position: "bottom-left",
 			});
+			return;
 		}
 
-		return toast.error("An unexpected error occurred.", {
+		toast.error("An unexpected error occurred.", {
 			position: "bottom-left",
 		});
 	});
@@ -42,7 +44,6 @@
 
 	function turnstile(): Attachment {
 		return (element) => {
-			console.log("Rendering captcha...");
 			// @ts-expect-error - Imported via script tag
 			const id = window.turnstile.render(element, {
 				sitekey: PUBLIC_CAPTCHA_SITE_KEY,

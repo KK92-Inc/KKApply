@@ -9,7 +9,7 @@ import * as v from "valibot";
 import { command, getRequestEvent, query } from "$app/server";
 import { Generator, type MemoryGame } from "$lib/games/memory.svelte";
 import { id } from "$lib/remotes/schemas";
-import { sql } from "bun";
+import { sql } from "$lib";
 
 // ============================================================================
 
@@ -87,6 +87,16 @@ export const submit = command(SubmitSchema, async ({ userEventId, sequence }) =>
 	const stage = store.stages.at(-1) ?? error(500, "No active stage found");
 	if (!deepEquals(stage.sequence, sequence)) {
 		error(422, "Incorrect sequence");
+	}
+
+	// Last stage completed, mark event as completed.
+	if (stage.difficulty >= 1) {
+		await sql`
+			UPDATE user_events
+			SET completedAt = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+			WHERE id = ${userEventId}
+		`;
+		return { completed: true };
 	}
 
 	// Correct sequence — generate the next stage.

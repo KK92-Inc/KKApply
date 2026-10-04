@@ -2,9 +2,8 @@ import { query, command } from '$app/server';
 import { getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import type { User } from '$models';
-import { sql } from 'bun';
 import { error, invalid } from '@sveltejs/kit';
-import { UserFlag } from '$lib';
+import { sql, UserFlag } from '$lib';
 import * as Users from './user.remote';
 import * as Date from '@internationalized/date';
 

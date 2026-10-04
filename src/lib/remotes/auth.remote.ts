@@ -7,12 +7,12 @@ import { command, form, getRequestEvent, query } from "$app/server";
 import { env } from "$env/dynamic/private";
 import { error, redirect } from "@sveltejs/kit";
 import { captcha } from "./schemas";
-import { sql } from "bun";
 import type { User, VerificationToken } from "$models";
 import { resend } from "$lib/email";
 import { PUBLIC_APP_URL } from "$env/static/public";
 import { generateToken } from "$lib/utils";
 import { dev } from "$app/environment";
+import { sql } from "$lib";
 
 // ============================================================================
 

@@ -1,283 +1,143 @@
 <script lang="ts">
 	import * as Page from "../index.svelte";
 	import * as Memory from "./memory.remote";
-	import {
-		Eye,
-		Hand,
-		RotateCcw,
-		CheckCheck,
-		Loader2,
-		TriangleAlert,
-	} from "@lucide/svelte";
+	import * as IntlDate from "@internationalized/date";
+	import * as Event from "$lib/remotes/event.remote";
+	import { Button } from "$lib/components/button";
 	import { cn } from "$lib/utils";
-	import Button from "$lib/components/button/button.svelte";
-	import { goto } from "$app/navigation";
-	import { isHttpError } from "@sveltejs/kit";
 
-	type Phase = "start" | "watching" | "playing" | "submitting";
+	type Phase = "intro" | "watching" | "playing" | "submitting" | "finished";
+
+	// ── Bootstrap ──────────────────────────────────────────────────────────────
 
 	const context = Page.get();
-	const [event, userEvent] = await Promise.all([
-		context.event,
-		context.userEvent,
-	]);
-
-	let game = $state(await Memory.current(userEvent.id));
-	let phase = $state<Phase>("start");
+	let phase = $state<Phase>("playing");
+	let active = $state<number | null>(null);
 	let userSequence = $state<number[]>([]);
-	let activeCell = $state<number | null>(null);
-	let watchStep = $state(0);
-	let error = $state<string | null>(null);
+	let userEvent = $derived(await context.userEvent);
+	let game = $derived(await Memory.current(userEvent.id));
+	const fullSequence = $derived(userSequence.length === game.sequence.length);
 
-	// ── Derived ────────────────────────────────────────────────────────────────
+	// ── Timer ─────────────────────────────────────────────────────────────────
 
-	const totalCells = $derived(game.size * game.size);
-	const isComplete = $derived(userSequence.length === game.sequence.length);
-	const stepDuration = $derived(Math.max(350, 650 - game.sequence.length * 10));
-	const gapDuration = $derived(Math.max(150, 300 - game.sequence.length * 5));
+	let timeLeft = $derived(format(userEvent.startedAt));
+	export function format(startsAt: string | null, minutes: number = 30) {
+		if (!startsAt) return "00:00:00";
+		const endsAt = IntlDate.parseAbsolute(startsAt, "UTC").add({
+			minutes,
+		});
 
-	// ── Game logic ─────────────────────────────────────────────────────────────
-
-	async function startWatching() {
-		phase = "watching";
-		error = null;
-		userSequence = [];
-		activeCell = null;
-		watchStep = 0;
-
-		for (let i = 0; i < game.sequence.length; i++) {
-			watchStep = i + 1;
-			activeCell = game.sequence[i]!;
-			await sleep(stepDuration);
-			activeCell = null;
-			await sleep(gapDuration);
+		const current = IntlDate.now("UTC");
+		if (current.compare(endsAt) >= 0) {
+			// Force submission, this will evaluate it on the backend.
+			// If the time has run out, it will submit whatever the user has done so far
+			// return Memory.submit({ userEventId: userEvent.id, sequence: [] });
+			return "00:00:00";
 		}
 
-		watchStep = 0;
-		phase = "playing";
+		// Calculate diff using underlying epoch milliseconds
+		const diff = endsAt.toDate().getTime() - current.toDate().getTime();
+		const total = Math.floor(diff / 1000);
+		const h = Math.floor(total / 3600);
+		const m = Math.floor((total % 3600) / 60);
+		const s = total % 60;
+
+		const pad = (n: number) => n.toString().padStart(2, "0");
+		return `${pad(h)}:${pad(m)}:${pad(s)}`;
 	}
 
-	function handleCellClick(cellIndex: number) {
-		if (phase !== "playing") return;
-		if (isComplete) return;
-		if (userSequence.includes(cellIndex)) return;
+	$effect(() => {
+		const id = setInterval(() => {
+			timeLeft = format(userEvent.startedAt);
+		}, 1000);
 
-		error = null;
-		userSequence = [...userSequence, cellIndex];
-	}
+		return () => clearInterval(id);
+	});
 
-	async function handleSubmit() {
-		if (!isComplete || phase === "submitting") return;
-		phase = "submitting";
-		error = null;
-
-		try {
-			const next = await Memory.submit({
-				userEventId: userEvent.id,
-				sequence: userSequence,
-			});
-
-			if ("completed" in next) {
-				await goto("/home");
-				return;
-			}
-
-			game = next;
-			phase = "start";
-			userSequence = [];
-			activeCell = null;
-		} catch (err) {
-			if (isHttpError(err) && err.status === 422) {
-				error = "Wrong sequence — try again.";
-				userSequence = [];
-			} else {
-				error = "Something went wrong. Please retry.";
-				console.error(err);
-			}
-			phase = "playing";
-		}
-	}
-
-	function resetSelection() {
-		userSequence = [];
-		error = null;
-	}
-
-	function selectionOrder(cellIndex: number): number {
-		return userSequence.indexOf(cellIndex) + 1;
-	}
-
-	function sleep(ms: number): Promise<void> {
-		return new Promise((res) => setTimeout(res, ms));
-	}
+	// ── Handles ───────────────────────────────────────────────────────────────
 </script>
 
-<div
-	class="min-h-screen bg-background flex flex-col items-center justify-center gap-8 p-6 font-mono select-none"
->
-	<!-- Header ---------------------------------------------------------------->
-	<div class="flex flex-col items-center gap-2 text-center">
-		<p class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-			Memory Sequence
+{#if !userEvent.startedAt}
+	<div class="flex flex-col items-center gap-4">
+		<h2 class="text-2xl font-bold">Memory Challenge</h2>
+		<p class="text-center text-muted-foreground">
+			You will be shown a grid of 16 cards for 30 seconds. Try to memorize the
+			cards and their positions!
 		</p>
-
-		<div class="flex items-center gap-2 h-6">
-			{#if phase === "start"}
-				<span class="text-foreground text-sm tracking-widest uppercase"
-					>Ready</span
-				>
-			{:else if phase === "watching"}
-				<Eye class="w-4 h-4 text-amber-500 animate-pulse" />
-				<span class="text-amber-500 text-sm tracking-widest uppercase">
-					Watch — {watchStep} / {game.sequence.length}
-				</span>
-			{:else if phase === "playing"}
-				<Hand class="w-4 h-4 text-primary" />
-				<span class="text-foreground text-sm tracking-widest uppercase">
-					Repeat — {userSequence.length} / {game.sequence.length}
-				</span>
-			{:else if phase === "submitting"}
-				<Loader2 class="w-4 h-4 text-muted-foreground animate-spin" />
-				<span class="text-muted-foreground text-sm tracking-widest uppercase"
-					>Checking…</span
-				>
-			{/if}
-		</div>
-
-		<!-- Sequence progress pips -->
-		<div class="flex flex-wrap justify-center gap-1 mt-1 max-w-xs">
-			{#each { length: game.sequence.length } as _, i}
-				<div
-					id={`pip-${i}`}
-					class={cn(
-						"h-[2px] w-4 rounded-full transition-colors duration-200",
-						phase === "watching" && i < watchStep
-							? "bg-amber-500"
-							: phase === "playing" && i < userSequence.length
-								? "bg-primary"
-								: "bg-border",
-					)}
-				></div>
-			{/each}
-		</div>
-	</div>
-
-	<!-- Error banner ---------------------------------------------------------->
-	{#if error}
-		<div
-			class="flex items-center gap-2 px-4 py-2 rounded-md border border-destructive/40 bg-destructive/10 text-destructive text-xs tracking-wide"
+		<Button
+			onclick={() =>
+				Event.start({ eventId: userEvent.eventId, userId: userEvent.userId })}
+			disabled={!game}
 		>
-			<TriangleAlert class="w-3.5 h-3.5 shrink-0" />
-			{error}
+			Start Challenge
+		</Button>
+	</div>
+{:else if game}
+	<div class="flex flex-col items-center gap-4">
+		<h2 class="text-2xl font-bold">Memory Challenge</h2>
+
+		<div class="rounded-lg bg-secondary p-4 text-center">
+			<p class="text-sm uppercase tracking-wider text-muted-foreground">
+				Time Remaining
+			</p>
+			<p class="font-mono text-4xl font-bold tabular-nums">
+				{timeLeft ?? "00:00:00"}
+			</p>
 		</div>
-	{/if}
 
-	<!-- Grid ------------------------------------------------------------------>
-	<div
-		class="grid gap-2"
-		style="
-			grid-template-columns: repeat({game.size}, 4rem);
-			grid-template-rows:    repeat({game.size}, 4rem);
-		"
-	>
-		{#each { length: totalCells } as _, cellIndex}
-			{@const order = selectionOrder(cellIndex)}
-			{@const isActive = activeCell === cellIndex}
-			{@const isSelected = order > 0}
-			{@const isClickable = phase === "playing" && !isSelected && !isComplete}
-
-			<button
-				onclick={() => handleCellClick(cellIndex)}
-				disabled={!isClickable}
-				class={cn(
-					"relative rounded-md border text-xs font-bold",
-					"flex items-center justify-center overflow-hidden",
-					"transition-all duration-150",
-
-					// Default
-					"bg-card border-2 text-muted-foreground",
-
-					// Watching active — amber glow
-					isActive && [
-						"bg-amber-500 border-amber-400 text-amber-950",
-						"shadow-[0_0_18px_4px_--theme(--color-amber-500/40%)] scale-105",
-					],
-
-					// User selected — uses primary token
-					isSelected &&
-						!isActive &&
-						"bg-primary/15 border-primary text-primary",
-
-					// Hoverable
-					isClickable &&
-						"cursor-pointer hover:bg-accent hover:border-ring hover:scale-105",
-
-					// Dimmed states
-					phase === "watching" && !isActive && "opacity-25",
-					phase === "submitting" && "opacity-40 cursor-default",
-				)}
+		<!-- Game board would go here -->
+		<div class="mt-8 grid grid-cols-4 gap-2">
+			<div
+				class="grid gap-2"
+				style="
+					grid-template-columns: repeat({game.size}, 4rem);
+					grid-template-rows:    repeat({game.size}, 4rem);
+				"
 			>
-				{#if isSelected}
-					<span class="text-[10px] tabular-nums leading-none">{order}</span>
-				{/if}
+				{#each { length: game.size * game.size } as _, cellIndex}
+					{@const order = userSequence.indexOf(cellIndex) + 1}
+					{@const isActive = active === cellIndex}
+					{@const isSelected = order > 0}
+					{@const isClickable =
+						phase === "playing" && !isSelected && !fullSequence}
 
-				{#if isActive}
-					<span
-						class="absolute inset-0 rounded-md bg-amber-400/30 animate-ping"
-						style="animation-duration: 0.45s"
-					></span>
-				{/if}
-			</button>
-		{/each}
+					<Button
+						variant="outline"
+						onclick={() => active = cellIndex}
+						disabled={!isClickable}
+						class={cn(
+							"size-16 border-2",
+							isActive && [
+								"bg-amber-500 border-amber-400 text-amber-950",
+								"shadow-[0_0_18px_4px_--theme(--color-amber-500/40%)] scale-105",
+							],
+							isSelected &&
+								!isActive &&
+								"bg-primary/15 border-primary text-primary",
+							isClickable &&
+								"cursor-pointer hover:bg-accent hover:border-ring hover:scale-105",
+							phase === "watching" && !isActive && "opacity-25",
+							phase === "submitting" && "opacity-40 cursor-default",
+						)}
+					>
+						<!-- {#if isSelected} -->
+						<span class="text-[10px] tabular-nums leading-none"
+							>{order} - {cellIndex}</span
+						>
+						<!-- {/if} -->
+						{#if isActive}
+							<span
+								class="absolute inset-0 rounded-md bg-amber-400/30 animate-ping"
+								style="animation-duration: 0.45s"
+							></span>
+						{/if}
+					</Button>
+				{/each}
+			</div>
+		</div>
 	</div>
-
-	<!-- Meta strip ----------------------------------------------------------->
-	<div
-		class="flex gap-6 text-[10px] text-muted-foreground/50 tracking-widest uppercase"
-	>
-		<span>Grid {game.size}x{game.size}</span>
-		<span>Seq {game.sequence.length}</span>
-		<span>Diff {Math.round(game.difficulty * 100)}%</span>
+{:else}
+	<div class="flex h-64 items-center justify-center">
+		<p class="animate-pulse">Loading game...</p>
 	</div>
-
-	<!-- Actions -------------------------------------------------------------->
-	<div class="flex gap-3">
-		{#if phase === "start"}
-			<Button
-				onclick={startWatching}
-				class="gap-2 tracking-widest uppercase text-xs"
-			>
-				<Eye class="w-3.5 h-3.5" />
-				Watch Sequence
-			</Button>
-		{:else if phase === "playing"}
-			{#if userSequence.length > 0}
-				<Button
-					variant="ghost"
-					onclick={resetSelection}
-					class="gap-2 tracking-widest uppercase text-xs text-muted-foreground"
-				>
-					<RotateCcw class="w-3.5 h-3.5" />
-					Reset
-				</Button>
-			{/if}
-
-			<Button
-				onclick={handleSubmit}
-				disabled={!isComplete}
-				class="gap-2 tracking-widest uppercase text-xs"
-			>
-				<CheckCheck class="w-3.5 h-3.5" />
-				Submit
-			</Button>
-		{:else if phase === "submitting"}
-			<Button
-				disabled
-				class="gap-2 tracking-widest uppercase text-xs opacity-50"
-			>
-				<Loader2 class="w-3.5 h-3.5 animate-spin" />
-				Verifying…
-			</Button>
-		{/if}
-	</div>
-</div>
+{/if}

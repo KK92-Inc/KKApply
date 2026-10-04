@@ -5,34 +5,32 @@
 
 import { building, dev } from '$app/environment'
 import type { Handle, ServerInit } from "@sveltejs/kit";
-import { sql } from "bun";
 import { sequence } from "@sveltejs/kit/hooks";
 import type { User, Session } from '$models';
 import { logger } from '$lib/logger';
-import { UserFlag } from '$lib';
+import { sql, UserFlag } from '$lib';
 
 // ============================================================================
 
 export const init: ServerInit = async () => {
 	if (building) return;
 
-	// Enable common pragmas for better performance and reliability
 	logger.info('Starting...');
 	await sql`PRAGMA journal_mode = WAL;`;
 	await sql`PRAGMA synchronous = NORMAL;`;
 	if (!dev) await sql`PRAGMA locking_mode = EXCLUSIVE;`;
 	await sql`PRAGMA temp_store = MEMORY;`;
-	await sql`PRAGMA mmap_size = 8589934592;`; // 8GB
+	await sql`PRAGMA mmap_size = 8589934592;`;
 
-	// Every 15 minutes, delete expired sessions
-	Bun.cron("*/15 * * * *", async () => {
+	Bun.cron("*/5 * * * *", async () => {
 		await sql`
-			DELETE FROM session
-			WHERE "expiresAt" <= (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-		`;
+      DELETE FROM session
+      WHERE "expiresAt" <= (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    `;
 		logger.info(`Session cleanup completed.`);
 	});
 }
+
 // ============================================================================
 
 const begin: Handle = async ({ event, resolve }) => {
@@ -50,41 +48,60 @@ export const session: Handle = async ({ event, resolve }) => {
 	const isUnauthorizedPath = event.url.pathname === '/' || event.url.pathname.startsWith('/token');
 
 	logger.debug(`Incoming request for ${event.url.pathname} with session ID: ${sessionId}`);
-	if (!sessionId && !isUnauthorizedPath) {
-		return Response.redirect('/', 303);
-	} else if (sessionId) {
+
+	if (sessionId) {
 		const [row] = await sql<Session[]>`
-			SELECT s.* FROM session s WHERE s.id = ${sessionId}
-			AND s."expiresAt" > (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-		`;
+      SELECT s.* FROM session s WHERE s.id = ${sessionId}
+      AND s."expiresAt" > (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    `;
 
 		if (row) {
 			event.locals.session = row;
 			if (isUnauthorizedPath) {
 				logger.debug(`Redirecting user to /home`);
-				return Response.redirect('/home', 303);
+				return Response.redirect(new URL('/home', event.url), 303);
 			}
 		} else {
-			logger.debug(`Invalid session detected. Redirecting to /`);
+			// FIX 1: Delete invalid cookie and ALLOW execution to continue if already on `/`
+			logger.debug(`Invalid session detected. Deleting cookie.`);
 			event.cookies.delete('session', { path: '/' });
-			return Response.redirect('/', 303);
+
+			if (!isUnauthorizedPath) {
+				return Response.redirect(new URL('/', event.url), 303);
+			}
 		}
+	} else if (!isUnauthorizedPath) {
+		return Response.redirect(new URL('/', event.url), 303);
 	}
 
 	return resolve(event);
 };
 
 export const authorized: Handle = async ({ event, resolve }) => {
-	if (!event.url.pathname.startsWith('/home/admin'))
-		return resolve(event);
-
 	const session = event.locals.session;
-	const [ user] = await sql<User[]>`
-		SELECT * FROM "user" WHERE id = ${session?.userId}
-		AND (flags & ${UserFlag.IsAdmin}) = ${UserFlag.IsAdmin}
-	`;
+	if (session) {
+		const [user] = await sql<User[]>`SELECT * FROM "user" WHERE id = ${session.userId}`;
 
-	return user ? resolve(event) : new Response(null, { status: 404 });
+		if (user?.banned) {
+			await sql`DELETE FROM session WHERE id = ${session.id}`;
+			event.cookies.delete('session', { path: '/' });
+			return new Response("Your account has been banned from Apply.", {
+				status: 403,
+				headers: {
+					'Set-Cookie': 'session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
+				}
+			});
+		}
+
+		if (event.url.pathname.startsWith('/home/admin')) {
+			const isAdmin = ((user?.flags ?? 0) & UserFlag.IsAdmin) === UserFlag.IsAdmin;
+			if (!isAdmin) {
+				return new Response(null, { status: 404 });
+			}
+		}
+	}
+
+	return resolve(event);
 };
 
 export const handle = sequence(begin, session, authorized);

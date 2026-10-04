@@ -3,7 +3,12 @@
 // See README in the root project for more information.
 // ============================================================================
 
+import { env, SQL } from "bun";
 import type { Level } from "./games/rocket.svelte";
+
+export const sql = new SQL(`sqlite://prisma/dev.db`);
+
+const sql1 = new SQL("sqlite://myapp.db");
 
 export const UserFlag = {
 	IsAdmin: 1 << 2,
